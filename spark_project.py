@@ -15,10 +15,7 @@ from pyspark import SparkContext
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
-import time
 import matplotlib.pyplot as plt
-from datetime import datetime
-import pandas as pd
 
 
 # sc = SparkContext("local", "Collect app")
@@ -36,7 +33,7 @@ def main():
     filename2 = "bitcoin-transactions_small.json"  # file for testing that result is correct
 
     # load transactions data
-    df = spark.read.json(filepath + filename2)
+    df = spark.read.json(filepath + filename)
 
     # show schema
     df.printSchema()
@@ -47,25 +44,25 @@ def main():
 
     # calculate average transaction value (transaction value - fee)
     avg_transaction_value = avg_amount_of_all_transactions(df)
+    avg_transaction_value.toPandas().to_csv('average_transaction_value.csv')
     print("Average transaction value: ", avg_transaction_value.collect()[0])
 
     # calculate average fee per day
     avg_fee = avg_transaction_fee(df)
-    print("Average fee per day based on this dataset:")
+    avg_fee.toPandas().to_csv('average_transaction_fee_per_day.csv')
+    print('Average fee per day based on this dataset:')
     avg_fee.show()
 
     # plot the timeseries result for average fee calculated avove
     show_plot(avg_fee, 'bar', 'date', 'avg', 'Date', 'Average transaction fee, Satoshi')
 
-    # calculate number transactions for each account
+    # extract input address (account) and value sent, to use for the next metrics
     input_address_to_value_df = create_input_value_df(df)
-    input_address_to_value_df.show()
-    input_address_to_value_df.printSchema()
-    print(input_address_to_value_df.count())
 
     # calculate the total number of transactions (how many times this account sent money) made by each address
     address_to_count_df = get_number_of_transactions_per_user(input_address_to_value_df)
-    address_to_count_df.sort(desc('number_transactions')).show()  # sort to show the most active senders
+    address_to_count_df.sort(desc('number_transactions')).toPandas().to_csv(
+        'total_number_transactions_per_account.csv')  # sort to show the most active senders
 
     # calculate current worth of each user based on input and output values
     # input - user sent money, ouput - user received money
@@ -93,7 +90,7 @@ def main():
     # calculate the total balance for each user, received - sent
     user_worth_df = sent_receive_amount_by_user_df.withColumn('total', sent_receive_amount_by_user_df['received'] -
                                                               sent_receive_amount_by_user_df['sent'])
-    user_worth_df.sort(desc(user_worth_df['total'])).show()
+    user_worth_df.sort(desc(user_worth_df['total'])).toPandas().to_csv('user_worth.csv')
     print(user_worth_df.count())
 
 
